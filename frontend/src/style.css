@@ -1,0 +1,137 @@
+/* Navbar */
+.navbar {
+  background-color:rgb(22, 22, 174);
+  color: white;
+  padding: 20px;
+  text-align: center;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+/* Main Background - Black */
+body {
+  background-color: black;
+  margin: 0;
+  padding: 20;
+}
+
+/* Main Container */
+.container {
+  display: flex;
+  height: 70vh;
+  width: 100%;
+}
+
+/* Editor Sections */
+.editor-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 20%;
+  overflow: hidden;
+  background-color: rgb(12, 12, 12); /* Background black */
+  color: rgb(18, 17, 17); /* Text white */
+}
+
+/* Editor Wrapper */
+.editor-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+.code-wrapper {
+  position: relative;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Headings */
+.editor-section h2 {
+  text-align: center;
+  font-size: 20px;
+  margin-bottom: 5px;
+  color: rgb(247, 246, 246); /* Heading text white */
+}
+
+/* Code Editor */
+.code-editor {
+  flex-grow: 1;
+  border: 2px solid #0f0e0e;
+  padding: 10px;
+  overflow: auto;
+  white-space: pre;
+  background: rgb(30, 28, 28); /* Background black */
+  color: rgb(98, 96, 96); /* Text color white */
+  resize: none;
+  height: 200%;
+  width: 100%;
+  border-radius: 2px;
+}
+
+/* Scrollable Container */
+.code-editor::-webkit-scrollbar {
+  width: 8px;
+}
+
+.code-editor::-webkit-scrollbar-track {
+  background: #333;
+}
+
+.code-editor::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.code-editor::-webkit-scrollbar-thumb:hover {
+  background: #111111;
+}
+
+.code-editor {
+  scrollbar-width: thin;
+  scrollbar-color: #555 #222;
+}
+/* Right-side Slider Styles */
+.right-slider {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  background: #101010;
+  cursor: ew-resize;
+  z-index: 10;
+}
+
+/* Horizontal Splitter */
+.splitter.horizontal {
+  width: 8px;
+  background: #101010;
+  cursor: ew-resize;
+}
+
+/* Centered Convert Button */
+.convert-container {
+  display: flex;
+  justify-content: center; /* Center horizontally */
+  align-items: center; /* Center vertically */
+  margin-top: 20px;
+}
+
+.convert-button {
+  padding: 12px 24px;
+  font-size: 18px;
+  background: rgb(22, 22, 174);
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.convert-button:hover {
+  background:  rgb(92, 150, 227);
+}
+
+
