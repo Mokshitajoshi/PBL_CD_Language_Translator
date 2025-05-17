@@ -22,7 +22,7 @@ First the python code is passed through a lexical analyzer to break it down into
    python -m venv venv
    .venv\Scripts\activate
 
-3. Install backend dependencies
+3. Install backend dependencies(only for the first time)
    ```
    pip install -r requirements.txt
    ```
@@ -41,7 +41,7 @@ First the python code is passed through a lexical analyzer to break it down into
    cd frontend
    ```
 
-3. Install frontend dependencies
+3. Install frontend dependencies (only for the first time)
    ```
    npm install
    ```
@@ -67,11 +67,11 @@ First the python code is passed through a lexical analyzer to break it down into
 5. React Frontend
 
 ## Can Convert Elements
-Functions
-Loops
-Variables
-Conditionals
-Expressions
+1. Functions
+2. Loops
+3. Variables
+4. Conditionals
+5. Expressions
 
 ## Future Features:
 1. More robust error handling
