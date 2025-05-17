@@ -2,8 +2,11 @@ import React, { useState, useRef } from "react";
 
 const LanguageConverter = () => {
   const [pythonCode, setPythonCode] = useState("");
-  const [jsCode, setJsCode] = useState("// Converted JavaScript Code\nconsole.log('Conversion logic here');");
+  const [jsCode, setJsCode] = useState("// Converted JavaScript Code");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   
+  // Refs for resizing
   const horizontalDividerRef = useRef(null);
   const rightPythonDividerRef = useRef(null);
   const rightJsDividerRef = useRef(null);
@@ -12,7 +15,47 @@ const LanguageConverter = () => {
   const pythonCodeRef = useRef(null);
   const jsCodeRef = useRef(null);
 
-  // Horizontal Resizing Logic
+  // Conversion function
+  const handleConvert = async () => {
+    if (!pythonCode.trim()) {
+      setError("Please enter some Python code");
+      return;
+    }
+    
+    setLoading(true);
+    setError("");
+    
+    try {
+      console.log("Sending request to backend...");
+      const response = await fetch('http://127.0.0.1:5000/convert', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ code: pythonCode }),
+      });
+      
+      console.log("Response received:", response);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("Data:", data);
+      
+      setJsCode(data.javascript || "// No JavaScript code generated");
+    } catch (err) {
+      console.error("Error:", err);
+      setError(`Connection error: ${err.message}`);
+      setJsCode("// Server connection failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Resizing logic (unchanged)
   const handleHorizontalMouseDown = () => {
     document.addEventListener("mousemove", handleHorizontalMouseMove);
     document.addEventListener("mouseup", handleHorizontalMouseUp);
@@ -129,9 +172,22 @@ const LanguageConverter = () => {
         </div>
       </div>
 
+      {/* Error message */}
+      {error && (
+        <div className="error-message">
+          {error}
+        </div>
+      )}
+
       {/* Convert Button - Centered */}
       <div className="convert-container">
-        <button className="convert-button">Convert</button>
+        <button 
+          className="convert-button" 
+          onClick={handleConvert}
+          disabled={loading}
+        >
+          {loading ? "Converting..." : "Convert"}
+        </button>
       </div>
     </div>
   );
