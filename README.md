@@ -15,12 +15,10 @@ First the python code is passed through a lexical analyzer to break it down into
 1. Clone the repository
    ```
    git clone https://github.com/Mokshitajoshi/PBL_CD_Language_Translator.git
-   cd PBL_CD_Language_Translator
    ```
 
 2. Create and activate a virtual environment (optional but recommended)
    ```
-   # On Windows
    python -m venv venv
    .venv\Scripts\activate
 
