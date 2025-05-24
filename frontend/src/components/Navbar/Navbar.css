@@ -1,47 +1,116 @@
+/* Navbar Styles */
 .navbar {
-    padding-bottom: 10px;
-    margin-bottom: 20px;
-  }
-  
-  .navbar.dark {
-    border-bottom: 1px solid #333;
-  }
-  
-  .navbar.light {
-    border-bottom: 1px solid #ccc;
-  }
-  
-  .navbar h1 {
-    margin: 0;
-  }
-  .navbar {
-    background-color: rgb(22, 22, 174);
-    color: white;
-    padding: 5px;
-    text-align: center;
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 20px;
-  }
-  
-  /* Remove the dark/light mode border since we have solid blue now */
-  .navbar.dark, .navbar.light {
-    border-bottom: none;
-  }
+  padding: 10px;
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
 
-  /* Navbar Light Mode - Yellow Background */
+/* Dark Mode Navbar */
+.navbar.dark {
+  background-color: rgb(22, 22, 174);
+  color: white;
+  border-bottom: 1px solid #333;
+}
+
+.navbar.dark h1 {
+  color: white; /* White text in dark mode */
+}
+
+/* Light Mode Navbar */
 .navbar.light {
-    background-color: #f87715; /* Pure yellow */
-    padding: 10px;
-    border-bottom: 1px solid #f87715; /* Slightly darker yellow border */
-  }
-  
-  .navbar.light .navbar-title {
-    color: #222; /* Dark text for contrast */
-    font-weight: bold;
-  }
-  
-  .navbar.light .theme-toggle {
-    color: #222;
-    background-color: #f87715; /* Lighter yellow */
-  }
+  background-color: #f87715; /* Orange-yellow */
+  border-bottom: 1px solid #f87715;
+}
+
+.navbar.light h1 {
+  color: black; /* Black text in light mode */
+}
+
+/* Convert Container */
+.convert-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+  padding-bottom: 20px;
+  text-align: center;
+}
+
+/* Base Button Styles */
+.convert-button {
+  padding: 12px 24px;
+  font-size: 18px;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: all 0.3s ease;
+}
+
+/* Dark Mode Button */
+.convert-button.dark {
+  background-color: #4a90e2;
+  color: white;
+}
+
+.convert-button.dark:hover {
+  background-color: #2a70c2;
+}
+
+/* Light Mode Button */
+.convert-button.light {
+  background-color: #ffc107; /* Yellow */
+  color: #222; /* Dark text */
+  border: 2px solid #ffa000;
+}
+
+.convert-button.light:hover {
+  background-color: #ffa000; /* Darker yellow */
+}
+
+/* Disabled State */
+.convert-button:disabled {
+  background-color: #cccccc;
+  color: #666666;
+  cursor: not-allowed;
+}
+
+/* Editor Section Styles */
+.editor-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 20%;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.editor-section.dark {
+  background-color: rgb(12, 12, 12);
+  border: 2px solid #0f0e0e;
+}
+
+.editor-section.light {
+  background-color: #fff;
+  border: 1px solid #ccc;
+}
+
+.editor-header {
+  padding: 10px;
+  text-align: center;
+  border-bottom: 1px solid;
+}
+
+.editor-section.dark .editor-header {
+  background-color: #252526;
+  border-color: #333;
+  color: white; /* White text in dark mode */
+}
+
+.editor-section.light .editor-header {
+  background-color: #f3f3f3;
+  border-color: #ccc;
+  color: black; /* Black text in light mode */
+}
