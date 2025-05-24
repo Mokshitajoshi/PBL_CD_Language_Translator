@@ -1,0 +1,56 @@
+/* Convert Container Styles */
+.convert-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+    padding-bottom: 20px;
+    text-align: center;
+  }
+  
+  /* Base Button Styles */
+  .convert-button {
+    padding: 12px 24px;
+    font-size: 18px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+    color: white;
+  }
+  
+  /* Dark Mode Button */
+  .convert-button.dark {
+    background-color: #0f68cd;
+  }
+  
+  .convert-button.dark:hover {
+    background-color: #4b86c9;
+    box-shadow: 0 2px 8px rgba(74, 144, 226, 0.4);
+  }
+  
+  /* Light Mode Button */
+  .convert-button.light {
+    background-color: #f87715; /* Yellow */
+    color: #222;
+    border: 2px solid #f87715;
+  }
+  
+  .convert-button.light:hover {
+    background-color: #ffa000; /* Darker yellow/orange */
+    box-shadow: 0 2px 8px rgba(255, 160, 0, 0.4);
+  }
+  
+  /* Disabled State */
+  .convert-button:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+    box-shadow: none;
+    opacity: 0.7;
+  }
+  
+  .convert-button.light:disabled {
+    background-color: #f5f58a; /* Lighter yellow when disabled */
+    border-color: #e0e075;
+  }

@@ -1,0 +1,47 @@
+.navbar {
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .navbar.dark {
+    border-bottom: 1px solid #333;
+  }
+  
+  .navbar.light {
+    border-bottom: 1px solid #ccc;
+  }
+  
+  .navbar h1 {
+    margin: 0;
+  }
+  .navbar {
+    background-color: rgb(22, 22, 174);
+    color: white;
+    padding: 5px;
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 20px;
+  }
+  
+  /* Remove the dark/light mode border since we have solid blue now */
+  .navbar.dark, .navbar.light {
+    border-bottom: none;
+  }
+
+  /* Navbar Light Mode - Yellow Background */
+.navbar.light {
+    background-color: #f87715; /* Pure yellow */
+    padding: 10px;
+    border-bottom: 1px solid #f87715; /* Slightly darker yellow border */
+  }
+  
+  .navbar.light .navbar-title {
+    color: #222; /* Dark text for contrast */
+    font-weight: bold;
+  }
+  
+  .navbar.light .theme-toggle {
+    color: #222;
+    background-color: #f87715; /* Lighter yellow */
+  }
