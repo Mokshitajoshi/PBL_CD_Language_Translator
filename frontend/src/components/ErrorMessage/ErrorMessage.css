@@ -1,0 +1,24 @@
+.error-message {
+    margin-top: 15px;
+    font-weight: bold;
+    text-align: center;
+  }
+  
+  .error-message.dark {
+    color: #ff6b6b;
+  }
+  
+  .error-message.light {
+    color: #b00020;
+  }
+
+  .error-message {
+    color: #ff3333;
+    text-align: center;
+    margin: 10px 0;
+    padding: 8px;
+    background-color: rgba(255, 0, 0, 0.1);
+    border-radius: 4px;
+  }
+  
+  /* No need for dark/light variants since we want red error messages in both modes */
