@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import DarkModeToggle from "./components/DarkModeToggle/DarkModeToggle";
 import Navbar from "./components/Navbar/Navbar";
 import Editor from "./components/Editor/Editor";
@@ -12,10 +12,6 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [darkMode, setDarkMode] = useState(true);
-
-  const horizontalDividerRef = useRef(null);
-  const leftPanelRef = useRef(null);
-  const rightPanelRef = useRef(null);
 
   const handleConvert = async () => {
     if (!pythonCode.trim()) {
@@ -50,27 +46,6 @@ const App = () => {
     }
   };
 
-  const handleHorizontalMouseDown = () => {
-    document.addEventListener("mousemove", handleHorizontalMouseMove);
-    document.addEventListener("mouseup", handleHorizontalMouseUp);
-  };
-
-  const handleHorizontalMouseMove = (e) => {
-    const containerWidth =
-      horizontalDividerRef.current.parentElement.clientWidth;
-    const newLeftWidth = (e.clientX / containerWidth) * 100;
-
-    if (newLeftWidth > 20 && newLeftWidth < 80) {
-      leftPanelRef.current.style.flex = newLeftWidth + "%";
-      rightPanelRef.current.style.flex = 100 - newLeftWidth + "%";
-    }
-  };
-
-  const handleHorizontalMouseUp = () => {
-    document.removeEventListener("mousemove", handleHorizontalMouseMove);
-    document.removeEventListener("mouseup", handleHorizontalMouseUp);
-  };
-
   return (
     <div className={`app-container ${darkMode ? "dark" : "light"}`}>
       <DarkModeToggle darkMode={darkMode} toggleDarkMode={() => setDarkMode(!darkMode)} />
@@ -82,26 +57,20 @@ const App = () => {
           code={pythonCode}
           onChange={(e) => setPythonCode(e.target.value)}
           language="Python"
-          panelRef={leftPanelRef}
         />
-        
-        <div
-          className={`splitter horizontal ${darkMode ? "dark" : "light"}`}
-          ref={horizontalDividerRef}
-          onMouseDown={handleHorizontalMouseDown}
-        ></div>
         
         <Editor
           darkMode={darkMode}
           code={jsCode}
           readOnly={true}
           language="JavaScript"
-          panelRef={rightPanelRef}
         />
       </div>
-
-      <ErrorMessage darkMode={darkMode} error={error} />
-      <ConvertButton darkMode={darkMode} loading={loading} onClick={handleConvert} />
+      
+      <div className="controls">
+        <ConvertButton onClick={handleConvert} loading={loading} darkMode={darkMode} />
+        {error && <ErrorMessage message={error} />}
+      </div>
     </div>
   );
 };

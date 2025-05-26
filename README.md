@@ -2,7 +2,7 @@
 Compiler Design 
 
 This project is a compiler design project that converts Python code to JavaScript code. It uses a Flask API to handle the conversion and a React frontend to display the results.
-First the python code is passed through a lexical analyzer to break it down into tokens. Then the tokens are passed through a parser to generate an intermediate representation (IR). Finally, the IR is passed through a code generator to generate JavaScript code.
+First the python code is passed through a lexical analyzer to break it down into tokens. Then the tokens are passed through a parser to generate an intermediate representation (IR). Finally, the IR is passed through a code generator to generate JavaScript code. Direct AST-based transpilation from Python to JavaScript.
 
 ## Installation and Setup
 
@@ -52,7 +52,7 @@ First the python code is passed through a lexical analyzer to break it down into
    ```
    The frontend will run on http://localhost:3000
 
-## How to Run
+## How to Use
 1. Make sure both the Flask API and React frontend are running
 2. Open your browser and navigate to http://localhost:3000
 3. Enter Python code in the left panel

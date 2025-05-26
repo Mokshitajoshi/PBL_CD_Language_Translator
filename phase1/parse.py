@@ -145,15 +145,27 @@ class CodeParser(ast.NodeVisitor):
         self.generic_visit(node)
 
 def parse_code_to_ir(code: str) -> dict:
-    # Step 1: Lexical analysis
+    """
+    Parse Python code into an Intermediate Representation (IR).
+    
+    This function takes Python source code as input and returns a structured
+    intermediate representation that can be used for code generation.
+    
+    Args:
+        code: Python source code as a string
+        
+    Returns:
+        A dictionary containing the intermediate representation
+    """
+    # Step 1: Lexical analysis - Convert code to tokens
     tokens = analyze_code(code)
     
-    # Step 2: Parse tree generation
+    # Step 2: Parse tree generation - Use Python's ast module
     tree = ast.parse(code)
     parser = CodeParser()
     parser.visit(tree)
     
-    # Add tokens to the IR
+    # Step 3: Build the IR from the AST
     ir = parser.ir
     ir["tokens"] = tokens
     

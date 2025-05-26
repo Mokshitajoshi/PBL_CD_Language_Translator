@@ -1,37 +1,44 @@
 def convert_ir_to_js(ir):
     """
-    Convert IR to JavaScript code using pattern-based conversion.
+    Convert Intermediate Representation (IR) to JavaScript code.
+    
+    This function takes the IR produced by the parser and generates
+    equivalent JavaScript code.
+    
+    Args:
+        ir: Dictionary containing the intermediate representation
+        
+    Returns:
+        JavaScript code as a string
     """
-    converter = PyToJsConverter()
+    converter = IRToJsConverter()
     return converter.convert(ir)
 
-class PyToJsConverter:
-    """Class to handle Python to JavaScript conversion using IR"""
+class IRToJsConverter:
+    """Class to handle IR to JavaScript conversion"""
     
     def __init__(self):
         self.js_code = []
-        self.declared_vars = set()
         self.indent = 0
-        self.processed_calls = set()  # Track processed function calls
-        self.processed_statements = set()  # Track processed statements
-        self.temp_vars = {}  # For three-address code generation
-        self.current_scope = "global"  # Track current scope for variable declarations
+        self.declared_vars = set()
+        self.current_scope = "global"
+        self.function_stack = []
     
     def convert(self, ir):
         """Main conversion method"""
-        # Process functions first
+        # Process functions
         self._process_functions(ir.get('functions', []))
-        
-        # Process loops
-        self._process_loops(ir.get('loops', []))
         
         # Process variables
         self._process_variables(ir.get('variables', []))
         
+        # Process loops
+        self._process_loops(ir.get('loops', []))
+        
         # Process conditionals
         self._process_conditionals(ir.get('conditionals', []))
         
-        # Process expressions (including function calls)
+        # Process expressions
         self._process_expressions(ir.get('expressions', []))
         
         return "\n".join(self.js_code)
@@ -40,108 +47,88 @@ class PyToJsConverter:
         """Add a line of code with proper indentation"""
         self.js_code.append("  " * self.indent + line)
     
+    def _camel_case(self, name):
+        """Convert snake_case to camelCase for JavaScript conventions"""
+        if "_" not in name:
+            return name
+        parts = name.split("_")
+        return parts[0] + "".join(p.capitalize() for p in parts[1:])
+    
     def _process_functions(self, functions):
-        """Process function definitions"""
+        """Process function definitions from IR"""
         for func in functions:
             name = func.get('name', '')
+            js_name = self._camel_case(name)
             args = func.get('args', [])
             body = func.get('body', [])
-            lineno = func.get('lineno', 0)
             
             # Function declaration
-            self._add_line(f"function {name}({', '.join(args)}) {{")
-            self.indent += 1
+            self._add_line(f"function {js_name}({', '.join(args)}) {{")
             
-            # Set current scope to function name
+            # Process function body with increased indent
             old_scope = self.current_scope
             self.current_scope = name
+            self.function_stack.append(name)
+            self.indent += 1
             
-            # Process function body
+            # Process each statement in the function body
             for stmt in body:
                 self._process_statement(stmt)
             
-            # Restore scope
-            self.current_scope = old_scope
-            
             self.indent -= 1
+            self.function_stack.pop()
+            self.current_scope = old_scope
             self._add_line("}")
             self._add_line("")  # Empty line after function
     
     def _process_variables(self, variables):
-        """Process variable assignments"""
+        """Process variable assignments from IR"""
         for var in variables:
-            targets = var.get('targets', [])
-            value = var.get('value', '')
-            var_type = var.get('type', '')
-            
-            if targets:
-                var_name = self._extract_name(targets[0])
+            # Handle different variable assignment types
+            if 'targets' in var:
+                # Regular assignment
+                target = self._extract_name(var.get('targets', [''])[0])
+                value = var.get('value', '')
                 
-                if var_type == 'augassign':
-                    # Handle augmented assignments (+=, -=, etc.)
-                    op = var.get('op', '')
-                    js_op = self._convert_operator(op)
-                    js_expr = self._process_value(value)
-                    self._add_line(f"{var_name} {js_op} {js_expr};")
-                else:
-                    # Handle regular assignments
-                    js_expr = self._process_value(value)
-                    if var_name in self.declared_vars:
-                        self._add_line(f"{var_name} = {js_expr};")
+                # Convert value to JS
+                js_value = self._convert_value(value)
+                
+                # Determine declaration type (let for global, const for function scope)
+                declaration = ""
+                if target not in self.declared_vars:
+                    if self.function_stack and self.current_scope != "global":
+                        declaration = "const "
                     else:
-                        self._add_line(f"let {var_name} = {js_expr};")
-                        self.declared_vars.add(var_name)
-
-    def _process_value(self, value):
-        """Process a value which could be a string or a structured object"""
-        if isinstance(value, dict):
-            value_type = value.get('type', '')
+                        declaration = "let "
+                    self.declared_vars.add(target)
+                
+                self._add_line(f"{declaration}{target} = {js_value};")
             
-            if value_type == 'binary_operation':
-                left = self._process_value(value.get('left', ''))
-                op = value.get('op', '')
-                right = self._process_value(value.get('right', ''))
+            elif 'type' in var and var['type'] == 'augassign':
+                # Augmented assignment (+=, -=, etc.)
+                target = self._extract_name(var.get('target', ''))
+                op = var.get('op', '')
+                value = var.get('value', '')
                 
-                # Map Python operator to JavaScript operator
-                op_map = {
-                    "Add": "+",
-                    "Sub": "-",
-                    "Mult": "*",
-                    "Div": "/",
-                    "Mod": "%",
-                    "FloorDiv": "Math.floor(/)",  # Special case
-                    "Pow": "**"
-                }
+                # Convert operator and value
+                js_op = self._convert_operator(op)
+                js_value = self._convert_value(value)
                 
-                js_op = op_map.get(op, "+")
-                
-                # Special case for floor division
-                if js_op == "Math.floor(/)":
-                    return f"Math.floor({left} / {right})"
-                
-                return f"{left} {js_op} {right}"
-            elif value_type == 'name':
-                return value.get('id', '')
-            elif value_type == 'constant':
-                val = value.get('value', '')
-                if isinstance(val, str):
-                    return f"'{val}'"
-                return str(val)
-        else:
-            # If it's a string (ast.dump output), use the existing processing
-            return self._process_expression_node(value)
+                self._add_line(f"{target} {js_op} {js_value};")
     
     def _process_loops(self, loops):
-        """Process loop statements"""
+        """Process loop statements from IR"""
         for loop in loops:
             loop_type = loop.get('type', '')
             
             if loop_type == 'for':
                 target = self._extract_name(loop.get('target', ''))
                 iter_expr = loop.get('iter', '')
+                body = loop.get('body', [])
                 
-                # Handle range() function in for loops
+                # Check if it's a range-based loop
                 if "Call(func=Name(id='range'" in iter_expr:
+                    # Extract range arguments
                     args = self._extract_range_args(iter_expr)
                     
                     if len(args) == 1:
@@ -156,52 +143,43 @@ class PyToJsConverter:
                     else:
                         # Default case
                         self._add_line(f"for (let {target} = 0; {target} < 0; {target}++) {{")
-                    
-                    # Process loop body
-                    self.indent += 1
-                    for stmt in loop.get('body', []):
-                        self._process_statement(stmt)
-                    self.indent -= 1
-                    self._add_line("}")
                 else:
-                    # Generic iterable
-                    iter_name = self._process_expression_node(iter_expr)
+                    # For-of loop for other iterables
+                    iter_name = self._convert_value(iter_expr)
                     self._add_line(f"for (let {target} of {iter_name}) {{")
-                    
-                    # Process loop body
-                    self.indent += 1
-                    for stmt in loop.get('body', []):
-                        self._process_statement(stmt)
-                    self.indent -= 1
-                    self._add_line("}")
+                
+                # Process loop body
+                self.indent += 1
+                for stmt in body:
+                    self._process_statement(stmt)
+                self.indent -= 1
+                self._add_line("}")
             
             elif loop_type == 'while':
-                condition = self._process_expression_node(loop.get('condition', ''))
+                condition = self._convert_value(loop.get('condition', ''))
+                body = loop.get('body', [])
+                
                 self._add_line(f"while ({condition}) {{")
                 
                 # Process loop body
                 self.indent += 1
-                for stmt in loop.get('body', []):
+                for stmt in body:
                     self._process_statement(stmt)
                 self.indent -= 1
                 self._add_line("}")
     
     def _process_conditionals(self, conditionals):
-        """Process conditional statements"""
-        # Skip conditionals in global scope - they're handled by the functions
-        if self.current_scope != "global":
-            return
-        
+        """Process conditional statements from IR"""
         for cond_chain in conditionals:
             if isinstance(cond_chain, list):
                 for i, cond in enumerate(cond_chain):
                     cond_type = cond.get('type', '')
                     
                     if cond_type == 'if':
-                        test = self._process_expression_node(cond.get('test', ''))
+                        test = self._convert_value(cond.get('test', ''))
                         self._add_line(f"if ({test}) {{")
                     elif cond_type == 'elif':
-                        test = self._process_expression_node(cond.get('test', ''))
+                        test = self._convert_value(cond.get('test', ''))
                         self._add_line(f"else if ({test}) {{")
                     elif cond_type == 'else':
                         self._add_line("else {")
@@ -211,274 +189,254 @@ class PyToJsConverter:
                     for stmt in cond.get('body', []):
                         self._process_statement(stmt)
                     self.indent -= 1
+                    
+                    # Close the block
                     self._add_line("}")
     
     def _process_expressions(self, expressions):
-        """Process expressions including function calls"""
-        # Skip expressions in global scope - they're handled by the functions
-        if self.current_scope != "global":
-            return
-        
+        """Process expressions from IR"""
         for expr in expressions:
             expr_type = expr.get('type', '')
             
             if expr_type == 'call':
-                func_name = expr.get('func', '')
+                # Handle function calls
+                func = expr.get('func', '')
                 args = expr.get('args', [])
                 
-                # Skip built-in functions that are handled specially
-                if func_name in ['print', 'len', 'str', 'int', 'float', 'range']:
-                    if func_name == 'print':
-                        js_args = self._format_call_args(args)
-                        self._add_line(f"console.log({', '.join(js_args)});")
-                    return
-                
-                # Format arguments
-                js_args = self._format_call_args(args)
-                self._add_line(f"{func_name}({', '.join(js_args)});")
+                # Special handling for print
+                if func == 'print':
+                    js_args = [self._convert_value(arg) for arg in args]
+                    self._add_line(f"console.log({', '.join(js_args)});")
+                else:
+                    js_func = self._camel_case(func)  # Apply camelCase to function names
+                    js_args = [self._convert_value(arg) for arg in args]
+                    self._add_line(f"{js_func}({', '.join(js_args)});")
+            
             elif expr_type == 'binary_operation':
-                # This is handled in _process_expression_node
+                # Binary operations are usually part of other expressions
+                # and handled by _convert_value
                 pass
     
     def _process_statement(self, stmt):
-        """Process a single statement"""
-        # Create a unique identifier for this statement
-        stmt_hash = hash(stmt)
-        
-        # Skip if already processed
-        if stmt_hash in self.processed_statements:
-            return
-        self.processed_statements.add(stmt_hash)
-        
-        if "If(" in stmt:
-            # Handle if statements
-            if "test=Compare(" in stmt:
-                test_part = stmt.split("test=Compare(")[1]
-                left_part = test_part.split("left=")[1].split(", ops=")[0]
-                ops_part = test_part.split("ops=[")[1].split("]")[0]
-                comparators_part = test_part.split("comparators=[")[1].split("]")[0]
-                
-                # Extract body and orelse parts
-                body_part = stmt.split("body=[")[1].split("], orelse=")[0]
-                orelse_part = stmt.split("orelse=")[1]
-                
-                # Process left and right operands
-                left = self._process_expression_node(left_part)
-                comparators = self._split_args(comparators_part)
-                right = self._process_expression_node(comparators[0]) if comparators else ""
-                
-                # Map Python comparison operators to JavaScript
-                op = "==="  # Default
-                if "Eq()" in ops_part:
-                    op = "==="
-                elif "NotEq()" in ops_part:
-                    op = "!=="
-                elif "Lt()" in ops_part:
-                    op = "<"
-                elif "LtE()" in ops_part:
-                    op = "<="
-                elif "Gt()" in ops_part:
-                    op = ">"
-                elif "GtE()" in ops_part:
-                    op = ">="
-                
-                # Write the if statement
-                self._add_line(f"if ({left} {op} {right}) {{")
-                
-                # Process if body
-                self.indent += 1
-                body_stmts = self._split_statements(body_part)
-                for body_stmt in body_stmts:
-                    self._process_statement(body_stmt)
-                self.indent -= 1
-                
-                # Process else part if it exists
-                if orelse_part and orelse_part != "[]":
-                    self._add_line("} else {")
-                    self.indent += 1
-                    orelse_stmts = self._split_statements(orelse_part.strip("[]"))
-                    for else_stmt in orelse_stmts:
-                        self._process_statement(else_stmt)
-                    self.indent -= 1
-                
-                self._add_line("}")
-        elif "Call(func=Name(id='print'" in stmt:
-            # Handle print statements
-            args = self._extract_print_args(stmt)
-            self._add_line(f"console.log({', '.join(args)});")
-        elif "Call(func=Name(id='" in stmt:
-            # Handle function calls
-            func_name = stmt.split("Call(func=Name(id='")[1].split("'")[0]
-            args = self._extract_call_args(stmt)
+        """Process a single statement from the AST dump"""
+        if isinstance(stmt, dict):
+            # Handle structured statements
+            stmt_type = stmt.get('type', '')
             
-            # Skip built-in functions that are handled specially
-            if func_name in ['print', 'len', 'str', 'int', 'float']:
-                if func_name == 'print':
-                    self._add_line(f"console.log({', '.join(args)});")
-                return
-            
-            # Skip range() in global scope (it's handled in for loops)
-            if func_name == 'range' and self.current_scope == 'global':
-                return
-            
-            self._add_line(f"{func_name}({', '.join(args)});")
-        elif "Return(" in stmt:
-            # Handle return statements
-            return_value = self._extract_return_value(stmt)
-            if return_value:
-                self._add_line(f"return {return_value};")
-            else:
-                self._add_line("return;")
-        elif "Assign(" in stmt:
-            # Handle assignments
-            if "targets=[Name(id='" in stmt:
-                var_name = stmt.split("targets=[Name(id='")[1].split("'")[0]
-                value_part = stmt.split("value=")[1]
-                value = self._process_expression_node(value_part)
+            if stmt_type == 'call':
+                func = stmt.get('func', '')
+                args = stmt.get('args', [])
                 
-                if var_name in self.declared_vars or self.current_scope != "global":
-                    self._add_line(f"{var_name} = {value};")
+                # Special handling for print
+                if func == 'print':
+                    js_args = [self._convert_value(arg) for arg in args]
+                    
+                    # Check for f-strings
+                    if any("JoinedStr" in str(arg) for arg in args):
+                        # Handle f-string
+                        fstring_parts = []
+                        for arg in args:
+                            if "JoinedStr" in str(arg):
+                                # Extract parts from JoinedStr
+                                parts = self._extract_fstring_parts(arg)
+                                fstring_parts.append(f"`{parts}`")
+                            else:
+                                fstring_parts.append(self._convert_value(arg))
+                        self._add_line(f"console.log({', '.join(fstring_parts)});")
+                    else:
+                        self._add_line(f"console.log({', '.join(js_args)});")
                 else:
-                    self._add_line(f"let {var_name} = {value};")
-                    self.declared_vars.add(var_name)
+                    js_func = self._camel_case(func)  # Apply camelCase to function names
+                    js_args = [self._convert_value(arg) for arg in args]
+                    self._add_line(f"{js_func}({', '.join(js_args)});")
+            
+            # Add other statement types as needed
+            
         else:
-            # For unhandled statements, add a comment
-            pass
-
-    def _split_statements(self, stmts_str):
-        """Split a string of statements into individual statements"""
-        result = []
-        depth = 0
-        current = ""
-        
-        for char in stmts_str:
-            if char == '(':
-                depth += 1
-            elif char == ')':
-                depth -= 1
-            
-            current += char
-            
-            if depth == 0 and char == ')':
-                if current.strip():
-                    result.append(current.strip())
-                current = ""
-        
-        if current.strip():
-            result.append(current.strip())
-        
-        return result
-    
-    def _process_expression_node(self, expr_str):
-        """Process an expression node and return JS code"""
-        if not expr_str:
-            return ""
-        
-        # Handle string literals
-        if expr_str.startswith("'") and expr_str.endswith("'"):
-            return expr_str
-        
-        # Handle simple cases directly
-        if "Name(id='" in expr_str:
-            return expr_str.split("Name(id='")[1].split("'")[0]
-        elif "Constant(value=" in expr_str:
-            value = expr_str.split("Constant(value=")[1].split(")")[0]
-            if value.startswith("'") or value.startswith('"'):
-                # Return string literals with quotes
-                return value
-            return value
-        
-        # Handle binary operations
-        if "BinOp(" in expr_str:
-            # Extract the parts of the binary operation
-            if "left=" in expr_str and "op=" in expr_str and "right=" in expr_str:
-                left_part = expr_str.split("left=")[1].split(", op=")[0]
-                op_part = expr_str.split("op=")[1].split(", right=")[0]
-                right_part = expr_str.split("right=")[1].split(")")[0]
-                
-                # Process left and right operands recursively
-                left = self._process_expression_node(left_part)
-                right = self._process_expression_node(right_part)
-                
-                # Map Python operator to JavaScript operator
-                op_map = {
-                    "Add": "+",
-                    "Sub": "-",
-                    "Mult": "*",
-                    "Div": "/",
-                    "Mod": "%",
-                    "FloorDiv": "Math.floor(/)",  # Special case
-                    "Pow": "**"
-                }
-                
-                op = op_map.get(op_part, "+")
-                
-                # Special case for floor division
-                if op == "Math.floor(/)":
-                    return f"Math.floor({left} / {right})"
-                
-                return f"{left} {op} {right}"
-        
-        # Handle comparisons
-        if "Compare(" in expr_str:
-            if "left=" in expr_str and "ops=[" in expr_str and "comparators=[" in expr_str:
-                left_part = expr_str.split("left=")[1].split(", ops=")[0]
-                ops_part = expr_str.split("ops=[")[1].split("]")[0]
-                comparators_part = expr_str.split("comparators=[")[1].split("]")[0]
-                
-                left = self._process_expression_node(left_part)
-                comparators = self._split_args(comparators_part)
-                right = self._process_expression_node(comparators[0]) if comparators else ""
-                
-                # Map Python comparison operators to JavaScript
-                if "Eq()" in ops_part:
-                    return f"{left} === {right}"
-                elif "NotEq()" in ops_part:
-                    return f"{left} !== {right}"
-                elif "Lt()" in ops_part:
-                    return f"{left} < {right}"
-                elif "LtE()" in ops_part:
-                    return f"{left} <= {right}"
-                elif "Gt()" in ops_part:
-                    return f"{left} > {right}"
-                elif "GtE()" in ops_part:
-                    return f"{left} >= {right}"
-                elif "Is()" in ops_part:
-                    return f"{left} === {right}"
-                elif "IsNot()" in ops_part:
-                    return f"{left} !== {right}"
+            # Handle AST dump strings
+            if "Call(func=Name(id='print'" in stmt:
+                # Handle print statements
+                if "JoinedStr" in stmt:
+                    # Handle f-string in print
+                    fstring_parts = self._extract_fstring_from_dump(stmt)
+                    self._add_line(f"console.log(`{fstring_parts}`);")
                 else:
-                    return f"{left} === {right}"  # Default case
-        
-        # Handle function calls
-        if "Call(" in expr_str:
-            if "func=Name(id='" in expr_str:
-                func_name = expr_str.split("func=Name(id='")[1].split("'")[0]
-                args = self._extract_call_args(expr_str)
+                    args = self._extract_print_args(stmt)
+                    self._add_line(f"console.log({', '.join(args)});")
+            
+            elif "Call(func=Name(id='" in stmt:
+                # Handle function calls
+                func_name = stmt.split("Call(func=Name(id='")[1].split("'")[0]
+                js_func_name = self._camel_case(func_name)  # Apply camelCase to function names
+                args = self._extract_call_args(stmt)
                 
-                # Special case for Python built-ins
-                if func_name == "len":
-                    if args:
-                        return f"{args[0]}.length"
-                elif func_name == "str":
-                    if args:
-                        return f"String({args[0]})"
-                elif func_name == "int":
-                    if args:
-                        return f"parseInt({args[0]})"
-                elif func_name == "float":
-                    if args:
-                        return f"parseFloat({args[0]})"
+                # Skip built-in functions that are handled specially
+                if func_name in ['print', 'len', 'str', 'int', 'float']:
+                    if func_name == 'print':
+                        self._add_line(f"console.log({', '.join(args)});")
+                    elif func_name == 'len':
+                        # Handle len() function
+                        if args:
+                            self._add_line(f"{args[0]}.length;")
+                    elif func_name == 'str':
+                        # Handle str() function
+                        if args:
+                            self._add_line(f"String({args[0]});")
+                    elif func_name == 'int':
+                        # Handle int() function
+                        if args:
+                            self._add_line(f"parseInt({args[0]}, 10);")
+                    elif func_name == 'float':
+                        # Handle float() function
+                        if args:
+                            self._add_line(f"parseFloat({args[0]});")
+                    return
+                elif func_name == 'range':
+                    # Handle range function
+                    if len(args) == 2:
+                        start, stop = args
+                        self._add_line(f"Array.from({{length: {stop} - {start}}}, (_, i) => i + {start});")
+                    elif len(args) == 3:
+                        start, stop, step = args
+                        self._add_line(f"Array.from({{length: Math.ceil(({stop} - {start}) / {step})}}, (_, i) => i * {step} + {start});")
+                    elif len(args) == 1:
+                        stop = args[0]
+                        self._add_line(f"Array.from({{length: {stop}}}, (_, i) => i);")
+                    return
                 
-                return f"{func_name}({', '.join(args)})"
-        
-        # If we can't process it, return as is (with a comment)
-        return f"/* Unprocessed: {expr_str} */"
+                self._add_line(f"{js_func_name}({', '.join(args)});")
+            
+            elif "Return(" in stmt:
+                # Handle return statements
+                return_value = self._extract_return_value(stmt)
+                if return_value:
+                    self._add_line(f"return {return_value};")
+                else:
+                    self._add_line("return;")
+            
+            elif "Assign(" in stmt:
+                # Handle assignments
+                if "targets=[Name(id='" in stmt:
+                    var_name = stmt.split("targets=[Name(id='")[1].split("'")[0]
+                    value_part = stmt.split("value=")[1]
+                    value = self._convert_value(value_part)
+                    
+                    # Determine declaration type (let for global, const for function scope)
+                    declaration = ""
+                    if var_name not in self.declared_vars:
+                        if self.function_stack and self.current_scope != "global":
+                            declaration = "const "
+                        else:
+                            declaration = "let "
+                        self.declared_vars.add(var_name)
+                    
+                    self._add_line(f"{declaration}{var_name} = {value};")
+            
+            elif "If(" in stmt:
+                # Handle if statements
+                if "test=Compare(" in stmt:
+                    test_part = stmt.split("test=Compare(")[1]
+                    left_part = test_part.split("left=")[1].split(", ops=")[0]
+                    ops_part = test_part.split("ops=[")[1].split("]")[0]
+                    comparators_part = test_part.split("comparators=[")[1].split("]")[0]
+                    
+                    # Extract body and orelse parts
+                    body_part = stmt.split("body=[")[1].split("], orelse=")[0]
+                    orelse_part = stmt.split("orelse=")[1]
+                    
+                    # Process left and right operands
+                    left = self._convert_value(left_part)
+                    comparators = self._split_args(comparators_part)
+                    right = self._convert_value(comparators[0]) if comparators else ""
+                    
+                    # Map Python comparison operators to JavaScript
+                    op = "==="  # Default
+                    if "Eq()" in ops_part:
+                        op = "==="
+                    elif "NotEq()" in ops_part:
+                        op = "!=="
+                    elif "Lt()" in ops_part:
+                        op = "<"
+                    elif "LtE()" in ops_part:
+                        op = "<="
+                    elif "Gt()" in ops_part:
+                        op = ">"
+                    elif "GtE()" in ops_part:
+                        op = ">="
+                    
+                    # Write the if statement
+                    self._add_line(f"if ({left} {op} {right}) {{")
+                    
+                    # Process if body
+                    self.indent += 1
+                    body_stmts = self._split_statements(body_part)
+                    for body_stmt in body_stmts:
+                        self._process_statement(body_stmt)
+                    self.indent -= 1
+                    
+                    # Process else part if it exists
+                    if orelse_part and orelse_part != "[]":
+                        self._add_line("} else {")
+                        self.indent += 1
+                        orelse_stmts = self._split_statements(orelse_part.strip("[]"))
+                        for else_stmt in orelse_stmts:
+                            self._process_statement(else_stmt)
+                        self.indent -= 1
+                    
+                    self._add_line("}")
+            
+            elif "While(" in stmt:
+                # Handle while loops
+                if "test=" in stmt:
+                    test_part = stmt.split("test=")[1].split(", body=")[0]
+                    body_part = stmt.split("body=[")[1].split("], orelse=")[0]
+                    
+                    # Process test condition
+                    test = self._convert_value(test_part)
+                    
+                    self._add_line(f"while ({test}) {{")
+                    
+                    # Process while body
+                    self.indent += 1
+                    body_stmts = self._split_statements(body_part)
+                    for body_stmt in body_stmts:
+                        self._process_statement(body_stmt)
+                    self.indent -= 1
+                    
+                    self._add_line("}")
+            
+            elif "AugAssign(" in stmt:
+                # Handle augmented assignments (+=, -=, etc.)
+                if "target=" in stmt and "op=" in stmt and "value=" in stmt:
+                    target_part = stmt.split("target=")[1].split(", op=")[0]
+                    op_part = stmt.split("op=")[1].split(", value=")[0]
+                    value_part = stmt.split("value=")[1]
+                    
+                    target = self._convert_value(target_part)
+                    value = self._convert_value(value_part)
+                    
+                    # Map Python operator to JavaScript operator
+                    op_map = {
+                        "Add()": "+=",
+                        "Sub()": "-=",
+                        "Mult()": "*=",
+                        "Div()": "/=",
+                        "Mod()": "%=",
+                        "Pow()": "**="  # This will need special handling
+                    }
+                    
+                    js_op = op_map.get(op_part, "+=")
+                    
+                    # Special case for power operator
+                    if "Pow()" in op_part:
+                        self._add_line(f"{target} = Math.pow({target}, {value});")
+                    else:
+                        self._add_line(f"{target} {js_op} {value};")
     
     # Helper methods
     def _extract_name(self, name_str):
         """Extract name from AST string"""
-        if "Name(id='" in name_str:
+        if isinstance(name_str, str) and "Name(id='" in name_str:
             return name_str.split("Name(id='")[1].split("'")[0]
         return name_str
     
@@ -490,7 +448,7 @@ class PyToJsConverter:
             parts = self._split_args(args_str)
             
             for part in parts:
-                args.append(self._process_expression_node(part))
+                args.append(self._convert_value(part))
         
         return args
     
@@ -502,7 +460,7 @@ class PyToJsConverter:
             parts = self._split_args(args_str)
             
             for part in parts:
-                args.append(self._process_expression_node(part))
+                args.append(self._convert_value(part))
         
         return args
     
@@ -512,7 +470,7 @@ class PyToJsConverter:
             return ""
         elif "value=" in stmt:
             value_part = stmt.split("value=")[1]
-            return self._process_expression_node(value_part)
+            return self._convert_value(value_part)
         return ""
     
     def _extract_range_args(self, iter_expr):
@@ -523,30 +481,9 @@ class PyToJsConverter:
             parts = self._split_args(args_str)
             
             for part in parts:
-                args.append(self._process_expression_node(part))
+                args.append(self._convert_value(part))
         
         return args
-    
-    def _format_call_args(self, args):
-        """Format function call arguments"""
-        js_args = []
-        for arg in args:
-            if isinstance(arg, dict):
-                if arg.get('type') == 'constant':
-                    value = arg.get('value', '')
-                    if isinstance(value, str):
-                        js_args.append(f"'{value}'")
-                    else:
-                        js_args.append(str(value))
-                elif arg.get('type') == 'name':
-                    js_args.append(arg.get('id', ''))
-                else:
-                    # For complex expressions in the IR
-                    js_args.append(self._process_expression_node(str(arg)))
-            else:
-                js_args.append(self._process_expression_node(str(arg)))
-        
-        return js_args
     
     def _split_args(self, args_str):
         """Split arguments string into individual arguments"""
@@ -572,6 +509,30 @@ class PyToJsConverter:
         
         return args
     
+    def _split_statements(self, stmts_str):
+        """Split a string of statements into individual statements"""
+        result = []
+        depth = 0
+        current = ""
+        
+        for char in stmts_str:
+            if char == '(':
+                depth += 1
+            elif char == ')':
+                depth -= 1
+            
+            current += char
+            
+            if depth == 0 and char == ')':
+                if current.strip():
+                    result.append(current.strip())
+                current = ""
+        
+        if current.strip():
+            result.append(current.strip())
+        
+        return result
+    
     def _convert_operator(self, op):
         """Convert Python operator to JavaScript operator"""
         op_map = {
@@ -579,21 +540,192 @@ class PyToJsConverter:
             'Sub': '-=',
             'Mult': '*=',
             'Div': '/=',
-            'Mod': '%='
+            'Mod': '%=',
+            'FloorDiv': '//=',  # This will need special handling
+            'Pow': '**='        # This will need special handling
         }
-        return op_map.get(op, '+=')
+        return op_map.get(op, '+=')  # Default to += if operator not found
+    
+    def _convert_value(self, value):
+        """Convert a value to its JavaScript representation"""
+        if isinstance(value, dict):
+            # Handle structured values
+            value_type = value.get('type', '')
+            
+            if value_type == 'binary_operation':
+                left = self._convert_value(value.get('left', ''))
+                op = value.get('op', '')
+                right = self._convert_value(value.get('right', ''))
+                
+                # Map Python operator to JavaScript operator
+                op_map = {
+                    "Add": "+",
+                    "Sub": "-",
+                    "Mult": "*",
+                    "Div": "/",
+                    "Mod": "%",
+                    "FloorDiv": "Math.floor(/)",  # Special case
+                    "Pow": "**"
+                }
+                
+                js_op = op_map.get(op, "+")
+                
+                # Special case for floor division
+                if js_op == "Math.floor(/)":
+                    return f"Math.floor({left} / {right})"
+                
+                return f"{left} {js_op} {right}"
+            
+            elif value_type == 'name':
+                return value.get('id', '')
+            
+            elif value_type == 'constant':
+                val = value.get('value', '')
+                if isinstance(val, str):
+                    return f'"{val}"'  # Use double quotes for strings
+                elif val is None:
+                    return "null"
+                elif val is True:
+                    return "true"
+                elif val is False:
+                    return "false"
+                return str(val)
+            
+            else:
+                # For other structured values, convert to string
+                return str(value)
+        
+        elif isinstance(value, str):
+            # Handle AST dump strings
+            if "Name(id='" in value:
+                return value.split("Name(id='")[1].split("'")[0]
+            
+            elif "Constant(value=" in value:
+                const_value = value.split("Constant(value=")[1].split(")")[0]
+                
+                # Handle different constant types
+                if const_value == "None":
+                    return "null"
+                elif const_value == "True":
+                    return "true"
+                elif const_value == "False":
+                    return "false"
+                elif const_value.startswith("'") or const_value.startswith('"'):
+                    # Keep string quotes
+                    return const_value
+                
+                return const_value
+            
+            elif "BinOp(" in value:
+                # Handle binary operations in AST dump
+                if "left=" in value and "op=" in value and "right=" in value:
+                    left_part = value.split("left=")[1].split(", op=")[0]
+                    op_part = value.split("op=")[1].split(", right=")[0]
+                    right_part = value.split("right=")[1].split(")")[0]
+                    
+                    left = self._convert_value(left_part)
+                    right = self._convert_value(right_part)
+                    
+                    # Map Python operator to JavaScript operator
+                    op_map = {
+                        "Add()": "+",
+                        "Sub()": "-",
+                        "Mult()": "*",
+                        "Div()": "/",
+                        "Mod()": "%",
+                        "FloorDiv()": "Math.floor(/)",  # Special case
+                        "Pow()": "**"
+                    }
+                    
+                    js_op = op_map.get(op_part, "+")
+                    
+                    # Special case for floor division
+                    if js_op == "Math.floor(/)":
+                        return f"Math.floor({left} / {right})"
+                    
+                    return f"{left} {js_op} {right}"
+            
+            elif "List(" in value:
+                # Handle list literals
+                if "elts=[" in value:
+                    elts_str = value.split("elts=[")[1].split("]")[0]
+                    elements = self._split_args(elts_str)
+                    js_elements = [self._convert_value(el) for el in elements]
+                    return f"[{', '.join(js_elements)}]"
+            
+            elif "Dict(" in value:
+                # Handle dictionary literals
+                if "keys=[" in value and "values=[" in value:
+                    keys_str = value.split("keys=[")[1].split("]")[0]
+                    values_str = value.split("values=[")[1].split("]")[0]
+                    
+                    keys = self._split_args(keys_str)
+                    values = self._split_args(values_str)
+                    
+                    pairs = []
+                    for k, v in zip(keys, values):
+                        key = self._convert_value(k)
+                        val = self._convert_value(v)
+                        
+                        # If key is a string literal, use as object property
+                        if key.startswith('"') or key.startswith("'"):
+                            pairs.append(f"{key}: {val}")
+                        else:
+                            pairs.append(f"[{key}]: {val}")
+                    
+                    return f"{{{', '.join(pairs)}}}"
+            
+            else:
+                # For other strings, return as is
+                return value
+        else:
+            # For other types, return as is
+            return value
 
+    def _extract_fstring_parts(self, fstring_expr):
+        """Extract parts from an f-string expression"""
+        parts = []
+        
+        if isinstance(fstring_expr, str) and "JoinedStr" in fstring_expr:
+            # Extract from AST dump string
+            return self._extract_fstring_from_dump(fstring_expr)
+        
+        # For structured representation
+        if isinstance(fstring_expr, dict) and fstring_expr.get('type') == 'joined_str':
+            values = fstring_expr.get('values', [])
+            for value in values:
+                if isinstance(value, dict):
+                    if value.get('type') == 'str':
+                        parts.append(value.get('value', ''))
+                    elif value.get('type') == 'formatted_value':
+                        expr = value.get('value', {})
+                        parts.append(f"${{{self._convert_value(expr)}}}")
+        
+        return "".join(parts)
 
-
-
-
-
-
-
-
-
-
-
+    def _extract_fstring_from_dump(self, stmt):
+        """Extract f-string parts from AST dump string"""
+        parts = []
+        
+        # Extract values from JoinedStr
+        if "values=[" in stmt:
+            values_str = stmt.split("values=[")[1].split("]")[0]
+            values = self._split_args(values_str)
+            
+            for value in values:
+                if "Constant" in value:
+                    # Extract string constant
+                    if "value='" in value:
+                        str_value = value.split("value='")[1].split("'")[0]
+                        parts.append(str_value)
+                elif "FormattedValue" in value:
+                    # Extract formatted expression
+                    if "value=" in value:
+                        expr_str = value.split("value=")[1].split(", conversion=")[0]
+                        expr = self._convert_value(expr_str)
+                        parts.append(f"${{{expr}}}")
+        
+        return "".join(parts)
 
 
 
