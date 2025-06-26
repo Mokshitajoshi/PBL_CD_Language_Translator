@@ -77,3 +77,19 @@ First the python code is passed through a lexical analyzer to break it down into
 1. More robust error handling
 2. More complex code generation
 3. More languages
+
+## Screenshots
+
+### Translator Interface 
+![Translator](screenshots/translator.png)
+*Example of how the the translator opens at start.*
+
+### Dark Mode Interface
+![Dark Mode](screenshots/Dark_mode.png)
+*The application in dark mode, showing Python code on the left and converted JavaScript on the right.*
+
+### Light Mode Interface
+![Light Mode](screenshots/Light_mode.png)
+*The application in light mode, with a simple Python function being converted.*
+
+
