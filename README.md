@@ -81,7 +81,7 @@ First the python code is passed through a lexical analyzer to break it down into
 ## Screenshots
 
 ### Translator Interface 
-![Translator](screenshots/translator.png)
+![Translator](screenshots/Translator.png)
 *Example of how the the translator opens at start.*
 
 ### Dark Mode Interface
